@@ -1,6 +1,8 @@
 from importlib.resources import path
+from pathlib import Path
 import PySimpleGUI as sg
 import pandas as pd
+# import win32com.client as win32
 
 # Main Code
 def index_containing_substring(list, substring):
@@ -9,13 +11,14 @@ def index_containing_substring(list, substring):
                 return i
         return -1
 
+# *************************IF wrong excel type, give error *************************
 def Send_Email(excel_path):
-    df1= pd.read_excel(excel_path).dropna(how="all")  #Dropping entire rows with NA
-    df1["Worker"]= df1["Worker"].astype("string") #Converting Worker name to Str
-    WorkersList= df1["Worker Email"].dropna().to_list() #Extracting Worker Emails, and dropping NA (the Applied Filter row) 
+    df= pd.read_excel(excel_path).dropna(how="all")  #Dropping entire rows with NA
+    df["Worker"]= df["Worker"].astype("string") #Converting Worker name to Str
+    WorkersList= df["Worker Email"].dropna().to_list() #Extracting Worker Emails, and dropping NA (the Applied Filter row) 
 
     # Extracting Week Range from the "Applied Filter" cell block
-    weekRange= df1.iloc[-1,0] # Selecting last row
+    weekRange= df.iloc[-1,0] # Selecting last row
     split= weekRange.split("\n") #Splitting the Applied Filter row to sections
 
     # Code chunk to figure out where the Week Range is (Index)
@@ -27,9 +30,7 @@ def Send_Email(excel_path):
     dateSubject= rangeStr.split()[3:] # Selecting only the Dates # ['x/xx/20xx', '-', 'x/xx/20xx']
     dateSubject= " ".join(dateSubject) # Concatenate previous list to create one str 'x/xx/20xx - x/xx/20xx'
 
-    # Email Code -- Change to make customizable later
-
-    import win32com.client as win32
+    # Email Code -- Change to make customizable later    
     outlook = win32.Dispatch('outlook.application')
     mail = outlook.CreateItem(0)
     mail.BCC = ";".join(WorkersList)
@@ -43,11 +44,24 @@ def Send_Email(excel_path):
     Hemin""")
     mail.Send()
     sg.popup_no_titlebar("Email sent!")
+
+# View Excel File code
+def viewExcel(excel_path):
+    df= pd.read_excel(excel_path)
+    filename= Path(excel_path).name
+    sg.popup_scrolled( "=" * 50, df, title= filename)
+
+# Throws errors if filepath is not chosen
+def validPath(filepath):
+    if filepath and Path(filepath).exists():
+        return True
+    sg.popup_error("Please select a file path")
+    return False
         
 # GUI
 sg.theme("BlueMono")
 layout= [[sg.Text("Input Excel File:"), sg.Input(key="-IN-"), sg.FileBrowse(file_types=(("Excel Files", "*.xlsx"),("CSV Files", "*.csv"),))], #see if works on windows, confirmed does not work on Mac
-    [sg.Exit(), sg.Button("Send Email")],]
+    [sg.Exit(), sg.Button("View Excel File"), sg.Button("Send Email")],]
 
 window= sg.Window("Autosend Email", layout)
 
@@ -56,9 +70,13 @@ while True:
     print(event, values)
     if event in (sg.WINDOW_CLOSED, "Exit"):
         break
+    if event == "View Excel File":
+        if validPath(values["-IN-"]):           # Error message if Path not selected 
+            viewExcel(values["-IN-"])
     if event == "Send Email":
-        Send_Email(
-            excel_path=values["-IN-"]
-        )
+        if validPath(values["-IN-"]):           # Error message if Path not selected 
+            Send_Email(
+                excel_path=values["-IN-"]
+            )
         
 window.close()

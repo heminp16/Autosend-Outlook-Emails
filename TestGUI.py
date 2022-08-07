@@ -1,9 +1,10 @@
+from datetime import date
 from importlib.resources import path
 from pathlib import Path
 import PySimpleGUI as sg
 import pandas as pd
 import re
-# import win32com.client as win32
+import win32com.client as win32
 
 # Main Code
 def index_containing_substring(list, substring):
@@ -30,10 +31,10 @@ def extractExcel(excel_path):
 
     dateSubject= rangeStr.split()[3:] # Selecting only the Dates # ['x/xx/20xx', '-', 'x/xx/20xx']
     dateSubject= " ".join(dateSubject) # Concatenate previous list to create one str 'x/xx/20xx - x/xx/20xx'  
-    return dateSubject  
+    return dateSubject, WorkersList  
 
 def Send_Email():
-    WorkersList= extractExcel(excel_path=values["-IN-"])
+    dateSubject, WorkersList= extractExcel(excel_path=values["-IN-"])
     # Email Code -- Change to make customizable later    
     outlook = win32.Dispatch('outlook.application')
     mail = outlook.CreateItem(0)
@@ -102,7 +103,7 @@ while True:
     # Del or use the code I found 
     if event == 'Edit Email Body':
         if validPath(values["-IN-"]):    
-            dateSubject = Send_Email(excel_path=values["-IN-"])
+            dateSubject, WorkersList = extractExcel(excel_path=values["-IN-"])
             with open("emailBody.txt", "r") as file:
                 data = file.read()
                 noComments= re.sub(r'(?m)^ *#.*\n?', '', data)
@@ -113,7 +114,6 @@ while True:
                 data = file.read()
             popup(data)
 
-
         
     # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING
     # 
@@ -123,9 +123,7 @@ while True:
             viewExcel(values["-IN-"])
     if event == "Send Email":
         if validPath(values["-IN-"]):           # Error message if Path not selected 
-            Send_Email(
-                excel_path=values["-IN-"]
-            )
+            Send_Email()
         
 window.close()
 
@@ -134,4 +132,4 @@ window.close()
 #     settings= sg.UserSettings(
 #         path= settingPath, filename="config.ini", use_config_file=True
 #     )
-#     mainWindow()
+#     mainWindow() 

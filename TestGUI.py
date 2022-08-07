@@ -132,4 +132,4 @@ window.close()
 #     settings= sg.UserSettings(
 #         path= settingPath, filename="config.ini", use_config_file=True
 #     )
-#     mainWindow() 
+#     mainWindow()

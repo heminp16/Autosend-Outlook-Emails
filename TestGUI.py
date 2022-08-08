@@ -1,48 +1,58 @@
-from importlib.resources import path
-from pathlib import Path
+# from importlib.resources import path
+from pathlib import Path #need
 import os, sys, re
 import PySimpleGUI as sg
 import pandas as pd
-import win32com.client as win32
+# import win32com.client as win32
 
-# Main Code
+# Main Codes
 def index_containing_substring(list, substring):
         for i, s in enumerate(list):
             if substring in s:
                 return i
         return -1
 
-# *************************IF wrong excel type, give error *************************
 def extractExcel(excel_path):
     df= pd.read_excel(excel_path).dropna(how="all")  #Dropping entire rows with NA
-    df["Worker"]= df["Worker"].astype("string") #Converting Worker name to Str
-    WorkersList= df["Worker Email"].dropna().to_list() #Extracting Worker Emails, and dropping NA (the Applied Filter row) 
 
-    # Extracting Week Range from the "Applied Filter" cell block
-    weekRange= df.iloc[-1,0] # Selecting last row
-    split= weekRange.split("\n") #Splitting the Applied Filter row to sections
+    if "Worker" in df.columns: #Checks to see if Col. "Worker" is in Excel file. If not, throws an error.
+        df["Worker"]= df["Worker"].astype("string") #Converting Worker name to Str
+        WorkersList= df["Worker Email"].dropna().to_list() #Extracting Worker Emails, and dropping NA (the Applied Filter row) 
 
-    # Code chunk to figure out where the Week Range is (Index)
-    substring= "Week Range is"
-    indexLocation = index_containing_substring(split, substring) #prints out the index number of where "Week Range is" is located 
+        # Extracting Week Range from the "Applied Filter" cell block
+        weekRange= df.iloc[-1,0] # Selecting last row
+        split= weekRange.split("\n") #Splitting the Applied Filter row to sections
 
-    rangeStr= split[indexLocation] # Selected the Week Range  #'Week Range is x/xx/20xx - x/xx/20xx'
+        # Code chunk to figure out where the Week Range is (Index)
+        substring= "Week Range is"
+        indexLocation = index_containing_substring(split, substring) #prints out the index number of where "Week Range is" is located 
 
-    dateSubject= rangeStr.split()[3:] # Selecting only the Dates # ['x/xx/20xx', '-', 'x/xx/20xx']
-    dateSubject= " ".join(dateSubject) # Concatenate previous list to create one str 'x/xx/20xx - x/xx/20xx'  
-    return dateSubject, WorkersList  
+        rangeStr= split[indexLocation] # Selected the Week Range  #'Week Range is x/xx/20xx - x/xx/20xx'
 
+        dateSubject= rangeStr.split()[3:] # Selecting only the Dates # ['x/xx/20xx', '-', 'x/xx/20xx']
+        dateSubject= " ".join(dateSubject) # Concatenate previous list to create one str 'x/xx/20xx - x/xx/20xx'
+        return dateSubject, WorkersList  
+    else:
+        errCode = 1
+        sg.popup_error("This might be the incorrect Excel file. Columns: 'Worker' or/and 'Worker Email' are missing")
+        return errCode
+
+# Sends email to everyone in the Excel file. (BCC, will not show who else receieved an email). # Throws error if wrong Excel chosen. 
 def Send_Email():
-    dateSubject, WorkersList= extractExcel(excel_path=values["-IN-"])
-    # Email Code -- Change to make customizable later    
-    outlook = win32.Dispatch('outlook.application')
-    mail = outlook.CreateItem(0)
-    mail.BCC = ";".join(WorkersList)
-    mail.Subject = "Missing Time Entry" + " "+ dateSubject
-    mail.Body= noComments
-    mail.Send()
-    sg.popup_no_titlebar("Email sent!")
-    
+    errCode= extractExcel(excel_path=values["-IN-"])
+    if errCode != 1:
+        dateSubject, WorkersList= extractExcel(excel_path=values["-IN-"])  
+        outlook = win32.Dispatch('outlook.application')
+        mail = outlook.CreateItem(0)
+        mail.BCC = ";".join(WorkersList)
+        mail.Subject = "Missing Time Entry" + " "+ dateSubject
+        mail.Body= noComments
+        mail.Send()
+        sg.popup_no_titlebar("Email sent!")
+    else:
+        sg.popup_error("Please choose another Excel File!")
+        # return("Please choose another Excel File!")
+
 # View Excel File code
 def viewExcel(excel_path):
     df= pd.read_excel(excel_path)
@@ -55,8 +65,8 @@ def validPath(filepath):
         return True
     sg.popup_error("Please select a file path")
     return False
-
-
+    
+# Resource Path - used for emailBody.txt
 def resource_path(relative_path):
     try:
         base_path= sys._MEIPASS
@@ -64,40 +74,53 @@ def resource_path(relative_path):
         base_path= os.environ.get("_MEIPASS2", os.path.abspath("."))
     return os.path.join(base_path, relative_path)
 
-# EDITING # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING
-# # Del or use the code I found  
-def popup(text):
-    multiline = sg.Multiline(text, size=(80, 20), reroute_cprint=True, key="ll")
+# "Edit Email" pop up window. #Will edit file, but does not show edits until you exit. FIX THIS!
+def editMailPopup(text):
+    multiline = sg.Multiline(text, size=(80, 20), reroute_cprint=True, key="-TEXT-") #key="ll")
     layout = [[multiline], [sg.Button('Save')], [sg.Button('Exit')]]
     window = sg.Window('Title', layout, modal=True)
-
     while True:
         event, values = window.read()
         if event in (sg.WIN_CLOSED, 'Exit'):
             break
-        elif event == "Save":
-            with open(resource_path("emailBody.txt"), "r") as file: 
-                window['Save'].update(value=file)
+        elif event == "Save": 
+            with open(resource_path("emailBody.txt"), "w" ) as file:
+                window["-TEXT-"].update(data)
+                file.write(values["-TEXT-"])
     window.close()
 
+# "Preview Email" pop up window. Had to create own func because previous one would save the .txt if button selected in "Preview" mode.
+def previewMailPopup(text):
+    multiline = sg.Multiline(text, size=(80, 20), reroute_cprint=True, key="-TEXT-") #key="ll")
+    layout = [[multiline], [sg.Button('Exit')]]
+    window = sg.Window('Title', layout, modal=True)
+    while True:
+        event, values = window.read()
+        if event in (sg.WIN_CLOSED, 'Exit'):
+            break
+    window.close()
+
+# Shows "Cleaned Email Body." emailBody.txt has comments in the file, this code disregards the comments and emails the rest of msg. # Throws error if wrong Excel chosen. 
 def cleanedEmailText():
-    dateSubject, WorkersList = extractExcel(excel_path=values["-IN-"])
-    with open(resource_path("emailBody.txt"), "r") as file:
-        data = file.read()
-        noComments= re.sub(r'(?m)^ *#.*\n?', '', data)
-        noComments= noComments.replace("{DATESUBJECT}", dateSubject)
-    return(noComments)
+    errCode= extractExcel(excel_path=values["-IN-"])
+    if errCode != 1:
+        dateSubject, WorkersList = extractExcel(excel_path=values["-IN-"])
+        with open(resource_path("emailBody.txt"), "r") as file:
+            data = file.read()
+            noComments= re.sub(r'(?m)^ *#.*\n?', '', data)
+            noComments= noComments.replace("{DATESUBJECT}", dateSubject)
+        return(noComments)
+    else:
+        # sg.popup_error("Please choose another Excel File!")
+        return("Please choose another Excel File!")
 
 # def settingWindow(settings):
 #     sg.popup_scrolled(settings, title= "Current Settings")
 
-# EDITING # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING
-
-# def mainWindow():
-    # GUI
+# GUI
 sg.theme("BlueMono")
 layout= [[sg.Text("Input Excel File:"), sg.Input(key="-IN-"), sg.FileBrowse(file_types=(("Excel Files", "*.xlsx"),("CSV Files", "*.csv"),))], #see if works on windows, confirmed does not work on Mac
-    [sg.Exit(), sg.Button("Edit Email Body"), sg.Button("View Excel File"), sg.Button("Send Email")],]
+    [sg.Exit(), sg.Button("Edit Email Body"), sg.Button("Preview Email"), sg.Button("View Excel File"), sg.Button("Send Email")],]
 
 window= sg.Window("Autosend Email", layout)
 
@@ -106,23 +129,19 @@ while True:
     print(event, values)
     if event in (sg.WINDOW_CLOSED, "Exit"):
         break
-    #
-    #
-    # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING
-    # Del or use the code I found 
-    if event == 'Edit Email Body':
-        if validPath(values["-IN-"]):    
-            noComments= cleanedEmailText()
-            popup(noComments)
-        else:
-            with open(resource_path("emailBody.txt"), "r") as file:
-                data = file.read()
-            popup(data)
 
+    # Replaces the Email Body text with var DATESUBJECT. 
+    if event == 'Preview Email':
+        if validPath(values["-IN-"]):  
+            noComments= cleanedEmailText()
+            previewMailPopup(noComments)
         
-    # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING
-    # 
-    #     
+    # Edit Email Body
+    if event == "Edit Email Body":
+        with open(resource_path("emailBody.txt"), "r") as file:
+            data = file.read()
+        editMailPopup(data)
+
     if event == "View Excel File":
         if validPath(values["-IN-"]):           # Error message if Path not selected 
             viewExcel(values["-IN-"])
@@ -153,3 +172,9 @@ window.close()
 
 # WORKS YES
 #pyinstaller --onefile --noconsole --add-data emailBody.txt;. TestGUI.py
+
+############################################################################################
+############################################################################################
+################  Only thing left: Fix "Save" button when editing txt file  ################
+############################################################################################
+############################################################################################

@@ -1,9 +1,8 @@
-from datetime import date
 from importlib.resources import path
 from pathlib import Path
+import os, sys, re
 import PySimpleGUI as sg
 import pandas as pd
-import re
 import win32com.client as win32
 
 # Main Code
@@ -40,13 +39,7 @@ def Send_Email():
     mail = outlook.CreateItem(0)
     mail.BCC = ";".join(WorkersList)
     mail.Subject = "Missing Time Entry" + " "+ dateSubject
-    mail.Body = ("""Hello,
-
-    You are missing time entry for the week range of""" + " " + dateSubject + ". " "Please update those hours as soon as possible."
-    """
-
-    Thank You,
-    Hemin""")
+    mail.Body= noComments
     mail.Send()
     sg.popup_no_titlebar("Email sent!")
     
@@ -63,6 +56,14 @@ def validPath(filepath):
     sg.popup_error("Please select a file path")
     return False
 
+
+def resource_path(relative_path):
+    try:
+        base_path= sys._MEIPASS
+    except Exception:
+        base_path= os.environ.get("_MEIPASS2", os.path.abspath("."))
+    return os.path.join(base_path, relative_path)
+
 # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING # EDITING
 # # Del or use the code I found  
 def popup(text):
@@ -75,9 +76,17 @@ def popup(text):
         if event in (sg.WIN_CLOSED, 'Exit'):
             break
         elif event == "Save":
-            with open("emailBody.txt", "r") as file: 
+            with open(resource_path("emailBody.txt"), "r") as file: 
                 window['Save'].update(value=file)
     window.close()
+
+def cleanedEmailText():
+    dateSubject, WorkersList = extractExcel(excel_path=values["-IN-"])
+    with open(resource_path("emailBody.txt"), "r") as file:
+        data = file.read()
+        noComments= re.sub(r'(?m)^ *#.*\n?', '', data)
+        noComments= noComments.replace("{DATESUBJECT}", dateSubject)
+    return(noComments)
 
 # def settingWindow(settings):
 #     sg.popup_scrolled(settings, title= "Current Settings")
@@ -103,14 +112,10 @@ while True:
     # Del or use the code I found 
     if event == 'Edit Email Body':
         if validPath(values["-IN-"]):    
-            dateSubject, WorkersList = extractExcel(excel_path=values["-IN-"])
-            with open("emailBody.txt", "r") as file:
-                data = file.read()
-                noComments= re.sub(r'(?m)^ *#.*\n?', '', data)
-                noComments= noComments.replace("{DATESUBJECT}", dateSubject)
+            noComments= cleanedEmailText()
             popup(noComments)
         else:
-            with open("emailBody.txt", "r") as file:
+            with open(resource_path("emailBody.txt"), "r") as file:
                 data = file.read()
             popup(data)
 
@@ -133,3 +138,18 @@ window.close()
 #         path= settingPath, filename="config.ini", use_config_file=True
 #     )
 #     mainWindow() 
+
+
+# pyinstaller TestGUI.py --onefile --add-data emailBody.txt;. --windowed
+# pyinstaller  --onefile --windowed --add-data emailBody.txt TestGUI.py;.
+
+# pyinstaller TestGUI.py --onefile --windowed ^ --add-data emailBody.txt;. 
+
+
+# pyinstaller --onefile --noconsole --add-data emailBody.txt;included TestGUI.py --distpath .
+
+#pyinstaller TestGUI.py --onefile --windowed ^ --add-data="emailBody.txt;." 
+
+
+# WORKS YES
+#pyinstaller --onefile --noconsole --add-data emailBody.txt;. TestGUI.py

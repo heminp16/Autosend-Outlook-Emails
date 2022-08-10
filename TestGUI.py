@@ -1,11 +1,10 @@
-# from importlib.resources import path
 from pathlib import Path #need
-import os, sys, re
+import os, sys, re, ctypes
 import PySimpleGUI as sg
 import pandas as pd
 import tkinter as tk
 from tkinter import ttk
-# import win32com.client as win32
+import win32com.client as win32
 
 # Main Codes
 def index_containing_substring(list, substring):
@@ -39,8 +38,27 @@ def extractExcel(excel_path):
         sg.popup_error("This might be the incorrect Excel file. Columns: 'Worker' or/and 'Worker Email' are missing")
         return errCode
 
+# Get the computer username of the user. Swap their username to the correct order: First_Name Last_Name
+def getSignatureName():
+    GetUserNameEx = ctypes.windll.secur32.GetUserNameExW
+    NameDisplay = 3
+ 
+    size = ctypes.pointer(ctypes.c_ulong(0))
+    GetUserNameEx(NameDisplay, None, size)
+ 
+    nameBuffer = ctypes.create_unicode_buffer(size.contents.value)
+    GetUserNameEx(NameDisplay, nameBuffer, size)
+    username= nameBuffer.value # Last_Name, First_Name
+    return username
+
+username= getSignatureName()
+signature= username.replace(",", "").split() #remove the , (comma)
+signature= (signature[1], signature[0]) #flips the name ["First_Name", "Last_Name"]
+signature= " ".join(signature) # Concatenate list to create one str First_Name Last_Name
+
 # Sends email to everyone in the Excel file. (BCC, will not show who else receieved an email). # Throws error if wrong Excel chosen. 
 def Send_Email():
+    noComments= cleanedEmailText() # Safety measure if user does not press "Preview Email"
     errCode= extractExcel(excel_path=values["-IN-"])
     if errCode != 1:
         dateSubject, WorkersList= extractExcel(excel_path=values["-IN-"])  
@@ -50,7 +68,7 @@ def Send_Email():
         mail.Subject = "Missing Time Entry" + " "+ dateSubject
         mail.Body= noComments
         mail.Send()
-        sg.popup_no_titlebar("Email sent!")
+        sg.popup_no_titlebar("Email sent!", auto_close=True, auto_close_duration= 1.1)
     else:
         sg.popup_error("Please choose another Excel File!")
         # return("Please choose another Excel File!")
@@ -86,7 +104,7 @@ def resource_path(relative_path):
         base_path= os.environ.get("_MEIPASS2", os.path.abspath("."))
     return os.path.join(base_path, relative_path)
 
-# "Edit Email" pop up window. #Will edit file, but does not show edits until you exit. FIX THIS!
+# "Edit Email" pop up window.
 def editMailPopup(text):
     multiline = sg.Multiline(text, size=(80, 20), reroute_cprint=True, key="-TEXT-") #key="ll")
     layout = [[multiline], [sg.Button('Save')], [sg.Button('Exit')]]
@@ -98,7 +116,7 @@ def editMailPopup(text):
         elif event == "Save": 
             with open(resource_path("emailBody.txt"), "w" ) as file:
                 file.write(values["-TEXT-"])
-            sg.popup("Saved!", auto_close= True)
+            sg.popup("Saved!", auto_close=True, auto_close_duration= 1.1)
     window.close()
 
 # "Preview Email" pop up window. Had to create own func because previous one would save the .txt if button selected in "Preview" mode.
@@ -121,6 +139,7 @@ def cleanedEmailText():
             data = file.read()
             noComments= re.sub(r'(?m)^ *#.*\n?', '', data)
             noComments= noComments.replace("{DATESUBJECT}", dateSubject)
+            noComments= noComments.replace("{SIGNATURE}", signature)
         return(noComments)
     else:
         # sg.popup_error("Please choose another Excel File!")
@@ -144,7 +163,7 @@ while True:
 
     # Replaces the Email Body text with var DATESUBJECT. 
     if event == 'Preview Email':
-        if validPath(values["-IN-"]):  
+        if validPath(values["-IN-"]):
             noComments= cleanedEmailText()
             previewMailPopup(noComments)
         

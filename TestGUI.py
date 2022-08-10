@@ -3,6 +3,8 @@ from pathlib import Path #need
 import os, sys, re
 import PySimpleGUI as sg
 import pandas as pd
+import tkinter as tk
+from tkinter import ttk
 # import win32com.client as win32
 
 # Main Codes
@@ -53,11 +55,21 @@ def Send_Email():
         sg.popup_error("Please choose another Excel File!")
         # return("Please choose another Excel File!")
 
-# View Excel File code
+# View Excel File code # New Excel Preview - Used Tkinter
 def viewExcel(excel_path):
     df= pd.read_excel(excel_path)
-    filename= Path(excel_path).name
-    sg.popup_scrolled( "=" * 50, df, title= filename)
+    clear_data()
+    tv1["column"] = list(df.columns)
+    tv1["show"] = "headings"
+    for column in tv1["columns"]:
+        tv1.heading(column, text=column) # let the column heading = column name
+    df_rows = df.to_numpy().tolist() # turns the dataframe into a list of lists
+    for row in df_rows:
+        tv1.insert("", "end", values=row) # inserts each list into the treeview
+    return None
+def clear_data():
+    tv1.delete(*tv1.get_children())
+    return None
 
 # Throws errors if filepath is not chosen
 def validPath(filepath):
@@ -85,8 +97,8 @@ def editMailPopup(text):
             break
         elif event == "Save": 
             with open(resource_path("emailBody.txt"), "w" ) as file:
-                window["-TEXT-"].update(data)
                 file.write(values["-TEXT-"])
+            sg.popup("Saved!", auto_close= True)
     window.close()
 
 # "Preview Email" pop up window. Had to create own func because previous one would save the .txt if button selected in "Preview" mode.
@@ -144,11 +156,36 @@ while True:
 
     if event == "View Excel File":
         if validPath(values["-IN-"]):           # Error message if Path not selected 
+            # Start of Tkinter Code
+            root = tk.Tk()
+            root.title("Excel File Preview")
+            root.geometry("500x520") 
+            root.pack_propagate(False)
+            root.resizable(0, 0) #Window fixed in size
+            style = ttk.Style(root)
+            style.theme_use("clam")
+            excelFrame = tk.LabelFrame(root) # Frame for TreeView (Excel Preview)
+            excelFrame.place(height=450, width=500)
+            file_frame = tk.Label(root) # Frame for load button
+            file_frame.place(height=36, width=93, rely=0.88, relx=0.77)
+            ExitButton = tk.Button(file_frame, text="Exit", height=2, width=10, compound="c", command=root.destroy)
+            ExitButton.place(rely=0, relx=0)
+            tv1 = ttk.Treeview(excelFrame)  ## Treeview Widget
+            tv1.place(relheight=1, relwidth=1) # set the height and width of the widget to 100% of its container (frame1).
+            #Scroll bar settings
+            treescrolly = tk.Scrollbar(excelFrame, orient="vertical", command=tv1.yview) #update the Y-axis view of the widget
+            treescrollx = tk.Scrollbar(excelFrame, orient="horizontal", command=tv1.xview) #update the X-axis view of the widget
+            tv1.configure(xscrollcommand=treescrollx.set, yscrollcommand=treescrolly.set) # Add scrollbars to treeview 
+            treescrollx.pack(side="bottom", fill="x") #scrollbar fill the X-axis
+            treescrolly.pack(side="right", fill="y") #scrollbar fill the Y-axis
+            # End of Tkinter Code
+
             viewExcel(values["-IN-"])
     if event == "Send Email":
         if validPath(values["-IN-"]):           # Error message if Path not selected 
             Send_Email()
-        
+
+# root.mainloop() #not needed
 window.close()
 
 # if __name__ == "__main__":
@@ -158,23 +195,5 @@ window.close()
 #     )
 #     mainWindow() 
 
-
-# pyinstaller TestGUI.py --onefile --add-data emailBody.txt;. --windowed
-# pyinstaller  --onefile --windowed --add-data emailBody.txt TestGUI.py;.
-
-# pyinstaller TestGUI.py --onefile --windowed ^ --add-data emailBody.txt;. 
-
-
-# pyinstaller --onefile --noconsole --add-data emailBody.txt;included TestGUI.py --distpath .
-
-#pyinstaller TestGUI.py --onefile --windowed ^ --add-data="emailBody.txt;." 
-
-
 # WORKS YES
 #pyinstaller --onefile --noconsole --add-data emailBody.txt;. TestGUI.py
-
-############################################################################################
-############################################################################################
-################  Only thing left: Fix "Save" button when editing txt file  ################
-############################################################################################
-############################################################################################

@@ -1,10 +1,10 @@
 from pathlib import Path #need
-import os, sys, re, ctypes
+import os, sys, re #, ctypes
 import PySimpleGUI as sg
 import pandas as pd
 import tkinter as tk
 from tkinter import ttk
-import win32com.client as win32
+# import win32com.client as win32
 
 # Main Codes
 def index_containing_substring(list, substring):
@@ -39,22 +39,38 @@ def extractExcel(excel_path):
         return errCode
 
 # Get the computer username of the user. Swap their username to the correct order: First_Name Last_Name
-def getSignatureName():
-    GetUserNameEx = ctypes.windll.secur32.GetUserNameExW
-    NameDisplay = 3
+# def getSignatureName():
+#     GetUserNameEx = ctypes.windll.secur32.GetUserNameExW
+#     NameDisplay = 3
  
-    size = ctypes.pointer(ctypes.c_ulong(0))
-    GetUserNameEx(NameDisplay, None, size)
+#     size = ctypes.pointer(ctypes.c_ulong(0))
+#     GetUserNameEx(NameDisplay, None, size)
  
-    nameBuffer = ctypes.create_unicode_buffer(size.contents.value)
-    GetUserNameEx(NameDisplay, nameBuffer, size)
-    username= nameBuffer.value # Last_Name, First_Name
-    return username
+#     nameBuffer = ctypes.create_unicode_buffer(size.contents.value)
+#     GetUserNameEx(NameDisplay, nameBuffer, size)
+#     username= nameBuffer.value # Last_Name, First_Name
+#     return username
 
-username= getSignatureName()
-signature= username.replace(",", "").split() #remove the , (comma)
-signature= (signature[1], signature[0]) #flips the name ["First_Name", "Last_Name"]
-signature= " ".join(signature) # Concatenate list to create one str First_Name Last_Name
+# username= getSignatureName()
+# signature= username.replace(",", "").split() #remove the , (comma)
+# signature= (signature[1], signature[0]) #flips the name ["First_Name", "Last_Name"]
+# signature= " ".join(signature) # Concatenate list to create one str First_Name Last_Name
+
+# Reads Subject Name
+file_name = "emailBody.txt"
+file_read = open(file_name, "r")
+text = "{ENTER SUBJECT AFTER THIS}"
+lines = file_read.readlines()
+new_list = []
+idx = 0
+for line in lines:
+    if text in line:
+        new_list.insert(idx, line)
+        idx += 1
+file_read.close()
+lineLen = len(new_list)
+for i in range(lineLen):
+    subject= new_list[i].replace("{ENTER SUBJECT AFTER THIS}","") #replaces str "{ENTER SUBJECT HERE"
 
 # Sends email to everyone in the Excel file. (BCC, will not show who else receieved an email). # Throws error if wrong Excel chosen. 
 def Send_Email():
@@ -65,7 +81,7 @@ def Send_Email():
         outlook = win32.Dispatch('outlook.application')
         mail = outlook.CreateItem(0)
         mail.BCC = ";".join(WorkersList)
-        mail.Subject = "Missing Time Entry" + " "+ dateSubject
+        mail.Subject = subject
         mail.Body= noComments
         mail.Send()
         sg.popup_no_titlebar("Email sent!", auto_close=True, auto_close_duration= 1.1)
@@ -139,7 +155,7 @@ def cleanedEmailText():
             data = file.read()
             noComments= re.sub(r'(?m)^ *#.*\n?', '', data)
             noComments= noComments.replace("{DATESUBJECT}", dateSubject)
-            noComments= noComments.replace("{SIGNATURE}", signature)
+            # noComments= noComments.replace("{SIGNATURE}", signature)
         return(noComments)
     else:
         # sg.popup_error("Please choose another Excel File!")

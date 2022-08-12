@@ -72,7 +72,7 @@ def readSubjectName():
     lineLen = len(new_list)
     for i in range(lineLen):
         dateSubject, WorkersList= extractExcel(excel_path=values["-IN-"])  
-        subject= new_list[i].replace("#{ENTER SUBJECT AFTER THIS}","") #replaces str "{ENTER SUBJECT HERE"
+        subject= new_list[i].replace("#{ENTER SUBJECT AFTER THIS} ","") #replaces str "{ENTER SUBJECT HERE"
         subject= subject.replace("{DATESUBJECT}", dateSubject)
     return subject
 
@@ -114,7 +114,7 @@ def clear_data():
 def validPath(filepath):
     if filepath and Path(filepath).exists():
         return True
-    sg.popup_error("Please select a file path")
+    sg.popup_error("Please select a file path", title="Error", modal=True)
     return False
     
 # Resource Path - used for emailBody.txt (creates a temp file - removed per user request )
@@ -129,8 +129,11 @@ def validPath(filepath):
 # "Edit Email" pop up window.
 def editMailPopup(text):
     multiline = sg.Multiline(text, size=(80, 20), reroute_cprint=True, key="-TEXT-") #key="ll")
-    layout = [[multiline], [sg.Button('Save')], [sg.Button('Exit')]]
-    window = sg.Window('Title', layout, modal=True)
+    layout = [[multiline], [sg.Button('Save', size= (4,2)), sg.Button('Exit', size= (4,2))]]
+
+
+
+    window = sg.Window('Edit Email Body', layout, modal=True, element_justification='r')
     while True:
         event, values = window.read()
         if event in (sg.WIN_CLOSED, 'Exit'):
@@ -144,8 +147,8 @@ def editMailPopup(text):
 # "Preview Email" pop up window. Had to create own func because previous one would save the .txt if button selected in "Preview" mode.
 def previewMailPopup(text):
     multiline = sg.Multiline(text, size=(80, 20), reroute_cprint=True, key="-TEXT-") #key="ll")
-    layout = [[multiline], [sg.Button('Exit')]]
-    window = sg.Window('Title', layout, modal=True)
+    layout = [[multiline], [sg.Button('Exit', size= (4,2))]]
+    window = sg.Window('Preview Email', layout, modal=True, element_justification='r') 
     while True:
         event, values = window.read()
         if event in (sg.WIN_CLOSED, 'Exit'):
@@ -169,8 +172,8 @@ def cleanedEmailText():
         
 # GUI
 sg.theme("BlueMono")
-layout= [[sg.Text("Input Excel File:"), sg.Input(key="-IN-"), sg.FileBrowse(file_types=(("Excel Files", "*.xlsx"),("CSV Files", "*.csv"),))], #see if works on windows, confirmed does not work on Mac
-    [sg.Exit(), sg.Button("Edit Email Body"), sg.Button("Preview Email"), sg.Button("View Excel File"), sg.Button("Send Email")],]
+layout= [[sg.Text("Input Excel File:"), sg.Input(key="-IN-"), sg.FileBrowse(file_types=(("Excel Files", "*.xlsx"),), s=12 )], 
+    [sg.Exit(s=10), sg.Button("Edit Email Body", s=12), sg.Button("Preview Email", s=12), sg.Button("View Excel File", s=12), sg.Button("Send Email", s=12)],]
 
 window= sg.Window("Autosend Email", layout)
 

@@ -7,6 +7,8 @@ from tkinter import ttk
 import win32com.client as win32
 
 # Main Codes
+icon0= "favicon.ico"
+
 def index_containing_substring(list, substring):
         for i, s in enumerate(list):
             if substring in s:
@@ -35,7 +37,7 @@ def extractExcel(excel_path):
         return dateSubject, WorkersList  
     else:
         errCode = 1
-        sg.popup_error("This might be the incorrect Excel file. Columns: 'Worker' or/and 'Worker Email' are missing")
+        sg.popup_error("This might be the incorrect Excel file. Columns: 'Worker' or/and 'Worker Email' are missing", icon=Logo)
         return errCode
 
 # Get the computer username of the user. Swap their username to the correct order: First_Name Last_Name
@@ -89,9 +91,9 @@ def Send_Email():
         mail.Subject = subject
         mail.Body= noComments
         mail.Send()
-        sg.popup_no_titlebar("Email sent!", auto_close=True, auto_close_duration= 1.1)
+        sg.popup_no_titlebar("Email sent!", auto_close=True, auto_close_duration= 1.1, icon=Logo)
     else:
-        sg.popup_error("Please choose another Excel File!")
+        sg.popup_error("Please choose another Excel File!", icon=Logo)
         # return("Please choose another Excel File!")
 
 # View Excel File code # New Excel Preview - Used Tkinter
@@ -114,17 +116,18 @@ def clear_data():
 def validPath(filepath):
     if filepath and Path(filepath).exists():
         return True
-    sg.popup_error("Please select a file path", title="Error", modal=True)
+    sg.popup_error("Please select a file path", title="Error", modal=True, icon=Logo)
     return False
     
 # Resource Path - used for emailBody.txt (creates a temp file - removed per user request )
 # Basically, would create a default emailBody.txt that could be edited, but WOULD be reverted to default emailBody.txt on next app use.
-# def resource_path(relative_path):
-#     try:
-#         base_path= sys._MEIPASS
-#     except Exception:
-#         base_path= os.environ.get("_MEIPASS2", os.path.abspath("."))
-#     return os.path.join(base_path, relative_path)
+def resource_path(relative_path): #using for Logo now
+    try:
+        base_path= sys._MEIPASS
+    except Exception:
+        base_path= os.environ.get("_MEIPASS2", os.path.abspath("."))
+    return os.path.join(base_path, relative_path)
+Logo=resource_path(icon0)
 
 # "Edit Email" pop up window.
 def editMailPopup(text):
@@ -133,7 +136,7 @@ def editMailPopup(text):
 
 
 
-    window = sg.Window('Edit Email Body', layout, modal=True, element_justification='r')
+    window = sg.Window('Edit Email Body', layout, modal=True, element_justification='r', icon=Logo)
     while True:
         event, values = window.read()
         if event in (sg.WIN_CLOSED, 'Exit'):
@@ -141,14 +144,14 @@ def editMailPopup(text):
         elif event == "Save": 
             with open(("emailBody.txt"), "w" ) as file: #removed resource_path in with open 
                 file.write(values["-TEXT-"])
-            sg.popup("Saved!", auto_close=True, auto_close_duration= 1.1)
+            sg.popup("Saved!", auto_close=True, auto_close_duration= 1.1, icon=Logo)
     window.close()
 
 # "Preview Email" pop up window. Had to create own func because previous one would save the .txt if button selected in "Preview" mode.
 def previewMailPopup(text):
     multiline = sg.Multiline(text, size=(80, 20), reroute_cprint=True, key="-TEXT-") #key="ll")
     layout = [[multiline], [sg.Button('Exit', size= (4,2))]]
-    window = sg.Window('Preview Email', layout, modal=True, element_justification='r') 
+    window = sg.Window('Preview Email', layout, modal=True, element_justification='r', icon=Logo) 
     while True:
         event, values = window.read()
         if event in (sg.WIN_CLOSED, 'Exit'):
@@ -172,10 +175,10 @@ def cleanedEmailText():
         
 # GUI
 sg.theme("BlueMono")
-layout= [[sg.Text("Input Excel File:"), sg.Input(key="-IN-"), sg.FileBrowse(file_types=(("Excel Files", "*.xlsx"),), s=12 )], 
+layout= [[sg.Text("Input Excel File:"), sg.Input(key="-IN-"), sg.FileBrowse(file_types=(("Excel Files", "*.xlsx"),), s=12)], 
     [sg.Exit(s=10), sg.Button("Edit Email Body", s=12), sg.Button("Preview Email", s=12), sg.Button("View Excel File", s=12), sg.Button("Send Email", s=12)],]
 
-window= sg.Window("Autosend Email", layout)
+window= sg.Window("Autosend Email", layout, icon=Logo)
 
 while True:
     event, values= window.read()
@@ -201,6 +204,7 @@ while True:
             root = tk.Tk()
             root.title("Excel File Preview")
             root.geometry("500x520") 
+            root.iconbitmap(Logo)
             root.pack_propagate(False)
             root.resizable(0, 0) #Window fixed in size
             style = ttk.Style(root)
@@ -231,3 +235,5 @@ window.close()
 
 # Use this code in the terminal to create executable app 
 # pyinstaller --onefile --noconsole --add-data emailBody.txt;. TestGUI.py
+# or this with custom iso
+# pyinstaller --onefile --noconsole --add-data emailBody.txt;. --add-data favicon.ico;. --icon favicon.ico TestGUI.py

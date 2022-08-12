@@ -1,10 +1,10 @@
 from pathlib import Path #need
-import os, sys, re #, ctypes
+import os, sys, re, ctypes
 import PySimpleGUI as sg
 import pandas as pd
 import tkinter as tk
 from tkinter import ttk
-# import win32com.client as win32
+import win32com.client as win32
 
 # Main Codes
 def index_containing_substring(list, substring):
@@ -39,43 +39,48 @@ def extractExcel(excel_path):
         return errCode
 
 # Get the computer username of the user. Swap their username to the correct order: First_Name Last_Name
-# def getSignatureName():
-#     GetUserNameEx = ctypes.windll.secur32.GetUserNameExW
-#     NameDisplay = 3
+def getSignatureName():
+    GetUserNameEx = ctypes.windll.secur32.GetUserNameExW
+    NameDisplay = 3
  
-#     size = ctypes.pointer(ctypes.c_ulong(0))
-#     GetUserNameEx(NameDisplay, None, size)
+    size = ctypes.pointer(ctypes.c_ulong(0))
+    GetUserNameEx(NameDisplay, None, size)
  
-#     nameBuffer = ctypes.create_unicode_buffer(size.contents.value)
-#     GetUserNameEx(NameDisplay, nameBuffer, size)
-#     username= nameBuffer.value # Last_Name, First_Name
-#     return username
+    nameBuffer = ctypes.create_unicode_buffer(size.contents.value)
+    GetUserNameEx(NameDisplay, nameBuffer, size)
+    username= nameBuffer.value # Last_Name, First_Name
+    return username
 
-# username= getSignatureName()
-# signature= username.replace(",", "").split() #remove the , (comma)
-# signature= (signature[1], signature[0]) #flips the name ["First_Name", "Last_Name"]
-# signature= " ".join(signature) # Concatenate list to create one str First_Name Last_Name
+username= getSignatureName()
+signature= username.replace(",", "").split() #remove the , (comma)
+signature= (signature[1], signature[0]) #flips the name ["First_Name", "Last_Name"]
+signature= " ".join(signature) # Concatenate list to create one str First_Name Last_Name
 
 # Reads Subject Name
-file_name = "emailBody.txt"
-file_read = open(file_name, "r")
-text = "{ENTER SUBJECT AFTER THIS}"
-lines = file_read.readlines()
-new_list = []
-idx = 0
-for line in lines:
-    if text in line:
-        new_list.insert(idx, line)
-        idx += 1
-file_read.close()
-lineLen = len(new_list)
-for i in range(lineLen):
-    subject= new_list[i].replace("{ENTER SUBJECT AFTER THIS}","") #replaces str "{ENTER SUBJECT HERE"
+def readSubjectName():
+    file_name = "emailBody.txt"
+    file_read = open(file_name, "r")
+    text = "{ENTER SUBJECT AFTER THIS}"
+    lines = file_read.readlines()
+    new_list = []
+    idx = 0
+    for line in lines:
+        if text in line:
+            new_list.insert(idx, line)
+            idx += 1
+    file_read.close()
+    lineLen = len(new_list)
+    for i in range(lineLen):
+        dateSubject, WorkersList= extractExcel(excel_path=values["-IN-"])  
+        subject= new_list[i].replace("#{ENTER SUBJECT AFTER THIS}","") #replaces str "{ENTER SUBJECT HERE"
+        subject= subject.replace("{DATESUBJECT}", dateSubject)
+    return subject
 
 # Sends email to everyone in the Excel file. (BCC, will not show who else receieved an email). # Throws error if wrong Excel chosen. 
 def Send_Email():
     noComments= cleanedEmailText() # Safety measure if user does not press "Preview Email"
     errCode= extractExcel(excel_path=values["-IN-"])
+    subject= readSubjectName()
     if errCode != 1:
         dateSubject, WorkersList= extractExcel(excel_path=values["-IN-"])  
         outlook = win32.Dispatch('outlook.application')
@@ -112,13 +117,14 @@ def validPath(filepath):
     sg.popup_error("Please select a file path")
     return False
     
-# Resource Path - used for emailBody.txt
-def resource_path(relative_path):
-    try:
-        base_path= sys._MEIPASS
-    except Exception:
-        base_path= os.environ.get("_MEIPASS2", os.path.abspath("."))
-    return os.path.join(base_path, relative_path)
+# Resource Path - used for emailBody.txt (creates a temp file - removed per user request )
+# Basically, would create a default emailBody.txt that could be edited, but WOULD be reverted to default emailBody.txt on next app use.
+# def resource_path(relative_path):
+#     try:
+#         base_path= sys._MEIPASS
+#     except Exception:
+#         base_path= os.environ.get("_MEIPASS2", os.path.abspath("."))
+#     return os.path.join(base_path, relative_path)
 
 # "Edit Email" pop up window.
 def editMailPopup(text):
@@ -130,7 +136,7 @@ def editMailPopup(text):
         if event in (sg.WIN_CLOSED, 'Exit'):
             break
         elif event == "Save": 
-            with open(resource_path("emailBody.txt"), "w" ) as file:
+            with open(("emailBody.txt"), "w" ) as file: #removed resource_path in with open 
                 file.write(values["-TEXT-"])
             sg.popup("Saved!", auto_close=True, auto_close_duration= 1.1)
     window.close()
@@ -151,19 +157,16 @@ def cleanedEmailText():
     errCode= extractExcel(excel_path=values["-IN-"])
     if errCode != 1:
         dateSubject, WorkersList = extractExcel(excel_path=values["-IN-"])
-        with open(resource_path("emailBody.txt"), "r") as file:
+        with open(("emailBody.txt"), "r") as file: #removed resource_path in with open 
             data = file.read()
             noComments= re.sub(r'(?m)^ *#.*\n?', '', data)
             noComments= noComments.replace("{DATESUBJECT}", dateSubject)
-            # noComments= noComments.replace("{SIGNATURE}", signature)
+            noComments= noComments.replace("{SIGNATURE}", signature)
         return(noComments)
     else:
         # sg.popup_error("Please choose another Excel File!")
         return("Please choose another Excel File!")
-
-# def settingWindow(settings):
-#     sg.popup_scrolled(settings, title= "Current Settings")
-
+        
 # GUI
 sg.theme("BlueMono")
 layout= [[sg.Text("Input Excel File:"), sg.Input(key="-IN-"), sg.FileBrowse(file_types=(("Excel Files", "*.xlsx"),("CSV Files", "*.csv"),))], #see if works on windows, confirmed does not work on Mac
@@ -185,7 +188,7 @@ while True:
         
     # Edit Email Body
     if event == "Edit Email Body":
-        with open(resource_path("emailBody.txt"), "r") as file:
+        with open(("emailBody.txt"), "r") as file: #removed resource_path in with open 
             data = file.read()
         editMailPopup(data)
 
@@ -207,7 +210,7 @@ while True:
             ExitButton.place(rely=0, relx=0)
             tv1 = ttk.Treeview(excelFrame)  ## Treeview Widget
             tv1.place(relheight=1, relwidth=1) # set the height and width of the widget to 100% of its container (frame1).
-            #Scroll bar settings
+            # Scroll bar settings
             treescrolly = tk.Scrollbar(excelFrame, orient="vertical", command=tv1.yview) #update the Y-axis view of the widget
             treescrollx = tk.Scrollbar(excelFrame, orient="horizontal", command=tv1.xview) #update the X-axis view of the widget
             tv1.configure(xscrollcommand=treescrollx.set, yscrollcommand=treescrolly.set) # Add scrollbars to treeview 
@@ -223,12 +226,5 @@ while True:
 # root.mainloop() #not needed
 window.close()
 
-# if __name__ == "__main__":
-#     settingPath= Path.cwd()
-#     settings= sg.UserSettings(
-#         path= settingPath, filename="config.ini", use_config_file=True
-#     )
-#     mainWindow() 
-
-# WORKS YES
-#pyinstaller --onefile --noconsole --add-data emailBody.txt;. TestGUI.py
+# Use this code in the terminal to create executable app 
+# pyinstaller --onefile --noconsole --add-data emailBody.txt;. TestGUI.py

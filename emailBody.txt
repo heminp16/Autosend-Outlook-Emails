@@ -1,0 +1,14 @@
+######################################
+# The variable {DATESUBJECT} is extracting the Weeks from the excel file. To use this variable, please write it the same way.
+# The variable {SIGNATURE} is extracted from your computer. It will be in the order of First_Name Last_Name.
+# These variables can be placed anywhere in this text file, and it will be replaced, as long as it is spelled/formatted correctly. 
+# These comments WILL NOT be emailed out. The code will disregard these comments. Please edit the Email Body below!
+######################################
+#{ENTER SUBJECT AFTER THIS} Missing time entry for week of: {DATESUBJECT}
+
+Hello,
+
+EDIT HERE, in the same format you would in an email. 
+ 
+Thank you,
+{SIGNATURE}
